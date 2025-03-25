@@ -94,6 +94,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const institutionListElement = document.getElementById('institution-list');
     let activeListItem = null;
     
+    // 添加搜尋輸入框的事件監聽器
+    searchInput.addEventListener('input', () => {
+        updateFilters();
+    });
+
     let currentFilter = '';
     let currentCategories = [];
     let currentAgencies = [];
