@@ -93,25 +93,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let institutionsData = [];
     let filteredData = [];
+
+    // 獲取所有選擇器元素
     const searchInput = document.getElementById('search-input');
     const categorySelect = document.getElementById('category-select');
+    const agencySelect = document.getElementById('agency-select');
+    const managementSelect = document.getElementById('management-select');
+    const technicalSelect = document.getElementById('technical-select');
     const resultCount = document.getElementById('result-count');
+    
     let currentFilter = '';
     let currentCategory = '';
+    let currentAgency = '';
+    let currentManagement = '';
+    let currentTechnical = '';
     let institutionListElement;
     let activeMarker = null;
     let activeListItem = null;
-
-    // 新增管理等級和技術等級的篩選選擇器
-    const managementSelect = document.createElement('select');
-    managementSelect.id = 'management-select';
-    managementSelect.innerHTML = '<option value="">所有管理等級</option>';
-    document.getElementById('controls').insertBefore(managementSelect, resultCount);
-
-    const technicalSelect = document.createElement('select');
-    technicalSelect.id = 'technical-select';
-    technicalSelect.innerHTML = '<option value="">所有技術等級</option>';
-    document.getElementById('controls').insertBefore(technicalSelect, resultCount);
 
     console.log('開始讀取CSV檔案...');
 
