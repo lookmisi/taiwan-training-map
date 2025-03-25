@@ -10,6 +10,16 @@ document.addEventListener('DOMContentLoaded', function() {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
+    // 定義主管機關列表及其順序
+    const orderedAgencies = [
+        '基隆市政府', '臺北市政府', '新北市政府', '桃園市政府', 
+        '新竹市政府', '新竹縣政府', '苗栗縣政府', '臺中市政府', 
+        '彰化縣政府', '南投縣政府', '雲林縣政府', '嘉義市政府', 
+        '嘉義縣政府', '臺南市政府', '高雄市政府', '屏東縣政府',
+        '宜蘭縣政府', '花蓮縣政府', '臺東縣政府', '澎湖縣政府',
+        '金門縣政府', '連江縣政府'
+    ];
+
     // 從經緯度字串取得座標
     function getCoordinatesFromString(coordString) {
         if (!coordString) {
@@ -95,9 +105,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let filteredData = [];
     const searchInput = document.getElementById('search-input');
     const categorySelect = document.getElementById('category-select');
+    const agencySelect = document.getElementById('agency-select');
     const resultCount = document.getElementById('result-count');
     let currentFilter = '';
     let currentCategory = '';
+    let currentAgency = '';
     let institutionListElement;
     let activeMarker = null;
     let activeListItem = null;
@@ -115,11 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('開始讀取CSV檔案...');
 
-    // CSV 檔案路徑 - 簡化版本，直接使用相對路徑
+    // 使用簡化的CSV檔案路徑處理方式，適合網頁部署
     const csvPath = '教育訓練單位總表.csv';
     console.log('使用的CSV檔案路徑:', csvPath);
     
-    // 使用 fetch API 讀取CSV檔案 - 簡化版，移除 Electron 相關代碼
+    // 使用標準的fetch API讀取CSV檔案
     fetch(csvPath)
         .then(response => {
             if (!response.ok) {
@@ -128,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.text();
         })
         .then(csv => {
-            console.log('成功讀取CSV資料');
+            console.log('成功讀取CSV資料，長度:', csv.length);
             processCsvData(csv);
         })
         .catch(error => {
@@ -260,6 +272,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
+            // 初始化主管機關選擇，按照指定順序
+            agencySelect.innerHTML = '<option value="">所有主管機關</option>';
+            
+            // 從數據中獲取所有不重複的主管機關
+            const uniqueAgencies = [...new Set(institutionsData.map(item => item.主管機關))].filter(agency => agency);
+            console.log('主管機關唯一值:', uniqueAgencies);
+            
+            // 先添加預定義順序中的主管機關
+            orderedAgencies.forEach(agency => {
+                if (uniqueAgencies.includes(agency)) {
+                    const option = document.createElement('option');
+                    option.value = agency;
+                    option.textContent = agency;
+                    agencySelect.appendChild(option);
+                }
+            });
+            
+            // 添加不在預定義順序中的其他主管機關
+            uniqueAgencies.forEach(agency => {
+                if (!orderedAgencies.includes(agency)) {
+                    const option = document.createElement('option');
+                    option.value = agency;
+                    option.textContent = agency;
+                    agencySelect.appendChild(option);
+                }
+            });
+
+            // 添加主管機關變更事件監聽器
+            agencySelect.addEventListener('change', updateFilters);
+
             // 設置搜尋和篩選事件
             searchInput.addEventListener('input', updateFilters);
             categorySelect.addEventListener('change', updateFilters);
@@ -281,6 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFilters() {
         currentFilter = searchInput.value.trim().toLowerCase();
         currentCategory = categorySelect.value;
+        currentAgency = agencySelect.value;
         filterData();
         displayMarkers();
         updateInstitutionList(); // 新增：更新列表
@@ -353,6 +396,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // 根據技術等級過濾
             const matchTechnical = !technicalLevel || item.技術 === technicalLevel;
+            
+            // 根據主管機關過濾
+            const matchAgency = !currentAgency || item.主管機關 === currentAgency;
 
             // 根據搜尋關鍵字過濾
             let matchSearch = true;
@@ -365,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
             }
 
-            return matchCategory && matchManagement && matchTechnical && matchSearch;
+            return matchCategory && matchManagement && matchTechnical && matchAgency && matchSearch;
         });
 
         // 更新結果計數
