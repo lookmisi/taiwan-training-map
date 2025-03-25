@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let institutionsData = [];
     let filteredData = [];
+    let markerReferences = []; // 定義全域陣列來儲存標記引用
 
     // 獲取所有選擇器元素
     const searchInput = document.getElementById('search-input');
@@ -159,18 +160,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     listItem.classList.add('active');
                     activeListItem = listItem;
 
-                    // 找到對應的標記並觸發點擊
-                    markers.eachLayer((marker) => {
-                        const markerLatLng = marker.getLatLng();
-                        if (markerLatLng.lat === coordinates[0] && markerLatLng.lng === coordinates[1]) {
-                            // 平滑移動到標記位置
-                            map.setView(coordinates, 16, {
-                                animate: true,
-                                duration: 1
-                            });
-                            marker.openPopup();
-                        }
+                    // 平滑移動到地圖位置
+                    map.setView(coordinates, 16, {
+                        animate: true,
+                        duration: 1
                     });
+                    
+                    // 直接使用存儲的標記引用
+                    const targetMarker = markerReferences[index];
+                    if (targetMarker) {
+                        // 確保標記從群集中展開
+                        markers.zoomToShowLayer(targetMarker, () => {
+                            targetMarker.openPopup();
+                            console.log('成功開啟機構資訊：', item.職訓機構名稱);
+                        });
+                    } else {
+                        console.error('找不到對應的標記點', index, coordinates);
+                    }
 
                     // 確保列表項目在視圖中
                     listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -241,6 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 validMarkersCount++;
                 
                 const marker = L.marker(coordinates, { icon: defaultIcon });
+                // 清楚地在每個標記創建時保存引用
+                markerReferences[index] = marker;
                 
                 // 標記點彈出資訊
                 const popupContent = `
@@ -345,24 +353,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const headers = ['序', '類別', '系統帳號', '單一職訓機構', '職訓機構名稱', '管理', '技術',
                         '主管機關', '負責人職稱', '負責人', '電話', '信箱', '地址', '地址經緯度'];
         
+        // 使用目前過濾後的資料順序，並重新編排序號
+        const formattedData = filteredData.map((item, index) => [
+            (index + 1).toString(), // 重新編排序號，從1開始
+            item.類別,
+            { v: formatAccountNumber(item.系統帳號), t: 's' },
+            item.單一職訓機構,
+            item.職訓機構名稱,
+            item.管理,
+            item.技術,
+            item.主管機關,
+            item.負責人職稱,
+            item.負責人,
+            item.電話,
+            item.信箱,
+            item.地址,
+            item.地址經緯度
+        ]);
+        
         const data = [
             headers,
-            ...filteredData.map(item => [
-                item.序,
-                item.類別,
-                { v: formatAccountNumber(item.系統帳號), t: 's' }, // 設定為文字格式
-                item.單一職訓機構,
-                item.職訓機構名稱,
-                item.管理,
-                item.技術,
-                item.主管機關,
-                item.負責人職稱,
-                item.負責人,
-                item.電話,
-                item.信箱,
-                item.地址,
-                item.地址經緯度
-            ])
+            ...formattedData
         ];
         
         // 創建工作表
@@ -456,41 +467,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function processExcelData(jsonData) {
         console.log('開始處理Excel資料...');
         try {
-            // 轉換JSON資料為所需格式
-            institutionsData = jsonData.map((row, index) => {
-                console.log(`處理第 ${index + 1} 筆資料:`, row);
-                return {
-                    序: row.序,
-                    類別: row.類別,
-                    系統帳號: row.系統帳號,
-                    單一職訓機構: row.單一職訓機構,
-                    職訓機構名稱: row.職訓機構名稱,
-                    管理: row.管理,
-                    技術: row.技術,
-                    主管機關: row.主管機關,
-                    負責人職稱: row.負責人職稱,
-                    負責人: row.負責人,
-                    電話: row.電話,
-                    信箱: row.信箱,
-                    地址: row.地址,
-                    地址經緯度: row.地址經緯度
-                };
-            }).filter(item => {
-                const isValid = item.職訓機構名稱 && item.地址經緯度;
-                if (!isValid) {
-                    console.log('發現無效資料:', item);
-                }
-                return isValid;
-            });
-
-            console.log('成功解析資料筆數:', institutionsData.length);
-            if (institutionsData.length > 0) {
-                console.log('第一筆資料樣本:', institutionsData[0]);
-            }
-
-            // 定義等級的順序
-            const levelOrder = ['優等', '甲等', '乙等', '丙等', '丁等', '無', '乙等(僅檔案紀錄)'];
-            
             // 定義主管機關順序
             const orderedAgencies = [
                 '基隆市政府', '臺北市政府', '新北市政府', '桃園市政府', 
@@ -501,6 +477,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 '金門縣政府', '連江縣政府'
             ];
 
+            const agencyOrder = {};
+            orderedAgencies.forEach((agency, index) => {
+                agencyOrder[agency] = index + 1;
+            });
+
+            // 轉換JSON資料為所需格式並排序
+            institutionsData = jsonData
+                .map((row, index) => {
+                    return {
+                        序: row.序,
+                        類別: row.類別,
+                        系統帳號: row.系統帳號,
+                        單一職訓機構: row.單一職訓機構,
+                        職訓機構名稱: row.職訓機構名稱,
+                        管理: row.管理,
+                        技術: row.技術,
+                        主管機關: row.主管機關,
+                        負責人職稱: row.負責人職稱,
+                        負責人: row.負責人,
+                        電話: row.電話,
+                        信箱: row.信箱,
+                        地址: row.地址,
+                        地址經緯度: row.地址經緯度
+                    };
+                })
+                .filter(item => {
+                    const isValid = item.職訓機構名稱 && item.地址經緯度;
+                    if (!isValid) {
+                        console.log('發現無效資料:', item);
+                    }
+                    return isValid;
+                })
+                .sort((a, b) => {
+                    const orderA = agencyOrder[a.主管機關] || 999;
+                    const orderB = agencyOrder[b.主管機關] || 999;
+                    return orderA - orderB;
+                });
+
+            console.log('成功解析資料筆數:', institutionsData.length);
+            if (institutionsData.length > 0) {
+                console.log('第一筆資料樣本:', institutionsData[0]);
+            }
+
+            // 定義等級的順序
+            const levelOrder = ['優等', '甲等', '乙等', '丙等', '丁等', '無', '乙等(僅檔案紀錄)'];
+            
             // 使用新的初始化函數
             console.log('開始初始化選擇器...');
 
@@ -516,25 +538,21 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('找到的技術等級:', uniqueTechnicalLevels);
             initializeSelect(technicalSelect, levelOrder.filter(level => uniqueTechnicalLevels.includes(level)), '技術等級');
 
-            // 修正主管機關初始化，確保所有主管機關都會顯示
+            // 主管機關選擇器初始化
             const uniqueAgencies = [...new Set(institutionsData.map(item => item.主管機關))].filter(agency => agency);
             console.log('找到的主管機關:', uniqueAgencies);
             
-            // 先加入有序的主管機關
-            const orderedUniqueAgencies = [];
-            orderedAgencies.forEach(agency => {
-                if (uniqueAgencies.includes(agency)) {
-                    orderedUniqueAgencies.push(agency);
-                }
-            });
+            // 依照順序排列主管機關
+            const orderedUniqueAgencies = orderedAgencies.filter(agency => uniqueAgencies.includes(agency));
             
-            // 再加入其他未在排序中的主管機關
+            // 加入其他未在預設順序中的主管機關
             uniqueAgencies.forEach(agency => {
-                if (!orderedAgencies.includes(agency)) {
+                if (!orderedUniqueAgencies.includes(agency)) {
                     orderedUniqueAgencies.push(agency);
                 }
             });
             
+            console.log('排序後的主管機關:', orderedUniqueAgencies);
             initializeSelect(agencySelect, orderedUniqueAgencies, '主管機關');
 
             // 顯示所有資料
