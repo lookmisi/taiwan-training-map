@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>職訓機構地圖</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        #header {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        #controls {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        #search-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex-grow: 1;
+            min-width: 200px;
+            font-size: 14px;
+        }
+        
+        #category-select,
+        #management-select,
+        #technical-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 150px;
+            font-size: 14px;
+            background-color: white;
+        }
+        
+        #result-count {
+            margin-left: auto;
+            color: #666;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        #content-container {
+            display: flex;
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #list-container {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #list-header {
+            padding: 10px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        #institution-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+        }
+
+        .institution-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .institution-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .institution-item.active {
+            background-color: #e3f2fd;
+        }
+
+        .institution-number {
+            color: #3498db;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .institution-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .institution-details {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        #map {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .custom-marker .marker-icon {
+            width: 30px;
+            height: 30px;
+            background-color: #3498db;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .custom-marker .marker-icon::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #3498db;
+        }
+        
+        .custom-cluster {
+            background: transparent;
+        }
+        
+        .marker-cluster {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(52, 152, 219, 0.8);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .custom-popup .leaflet-popup-content-wrapper {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        
+        .custom-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .popup-content {
+            padding: 15px;
+        }
+        
+        .popup-content h3 {
+            margin: 0 0 12px 0;
+            color: #3498db;
+            font-size: 16px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+        
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .info-table td {
+            padding: 5px 0;
+            vertical-align: top;
+            line-height: 1.4;
+        }
+        
+        .info-table td:first-child {
+            width: 30%;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .info-table td:last-child {
+            color: #333;
+        }
+        
+        #pagination {
+            background-color: #f8f9fa;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        #pagination button {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #pagination button:hover {
+            background-color: #f0f0f0;
+        }
+        
+        #pagination button.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        #pagination button:disabled {
+            background-color: #f8f9fa;
+            color: #aaa;
+            cursor: not-allowed;
+        }
+        
+        #pagination span {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="header">
+            <h1>職訓機構地圖</h1>
+        </div>
+        
+        <div id="controls">
+            <input type="text" id="search-input" placeholder="搜尋機構名稱、地址..." />
+            <select id="category-select">
+                <option value="">所有類別</option>
+            </select>
+            <div id="result-count"></div>
+        </div>
+
+        <div id="content-container">
+            <div id="list-container">
+                <div id="list-header">職訓機構列表</div>
+                <ul id="institution-list"></ul>
+            </div>
+            <div id="map"></div>
+        </div>
+        
+        <div id="pagination"></div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    
+    <script src="map.js"></script>
+</body>
+</html>
