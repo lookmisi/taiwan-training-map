@@ -2,6 +2,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('開始初始化地圖...');
     
+    // 定義 Excel 檔案路徑
+    const xlsxPath = '教育訓練單位總表.xlsx';
+    console.log('Excel檔案路徑:', xlsxPath);
+    
     // 初始化地圖，設置中心點在台灣中心位置
     const map = L.map('map').setView([23.5, 121], 8);
 
@@ -19,7 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // 移除所有引號和多餘的空格
             const cleanString = coordString.replace(/["']/g, '').trim();
-            console.log('處理經緯度字串:', cleanString);
             
             // 檢查是否包含經度和緯度
             if (!cleanString.includes(',')) {
@@ -31,8 +34,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const parts = cleanString.split(',');
             const lat = parseFloat(parts[0].trim());
             const lng = parseFloat(parts[1].trim());
-            
-            console.log('解析後的座標:', lat, lng);
             
             if (!isNaN(lat) && !isNaN(lng)) {
                 return [lat, lng];
@@ -50,28 +51,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!account) return '無';
         
         try {
-            let numStr = String(account);
+            let numStr = String(account).trim();
             
-            // 處理科學記號格式
-            if (numStr.includes('E') || numStr.includes('e')) {
-                const num = Number(account);
-                if (!isNaN(num)) {
-                    numStr = num.toFixed(0);
-                }
-            }
-            
-            // 移除非數字字元（包括小數點）
+            // 种去非數字字元
             numStr = numStr.replace(/[^\d]/g, '');
             
-            // 如果數字為空，返回 '無'
             if (!numStr) return '無';
             
-            // 如果數字超過12位，取後12位
+            // 確保12位數
             if (numStr.length > 12) {
-                numStr = numStr.slice(-12);
+                numStr = numStr.slice(0, 12);
             }
-            
-            // 在前方補0直到達到12位數
             while (numStr.length < 12) {
                 numStr = '0' + numStr;
             }
@@ -101,194 +91,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const managementSelect = document.getElementById('management-select');
     const technicalSelect = document.getElementById('technical-select');
     const resultCount = document.getElementById('result-count');
+    const institutionListElement = document.getElementById('institution-list');
+    let activeListItem = null;
     
     let currentFilter = '';
-    let currentCategory = '';
-    let currentAgency = '';
-    let currentManagement = '';
-    let currentTechnical = '';
-    let institutionListElement;
-    let activeMarker = null;
-    let activeListItem = null;
-
-    console.log('開始讀取CSV檔案...');
-
-    // 使用簡化的CSV檔案路徑處理方式，適合網頁部署
-    const csvPath = '教育訓練單位總表.csv';
-    console.log('使用的CSV檔案路徑:', csvPath);
+    let currentCategories = [];
+    let currentAgencies = [];
+    let currentManagements = [];
+    let currentTechnicals = [];
     
-    // 使用標準的fetch API讀取CSV檔案
-    fetch(csvPath)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.text();
-        })
-        .then(csv => {
-            console.log('成功讀取CSV資料，長度:', csv.length);
-            processCsvData(csv);
-        })
-        .catch(error => {
-            console.error('讀取CSV檔案發生錯誤:', error);
-            resultCount.textContent = '讀取資料時發生錯誤';
-        });
-
-    // CSV 資料處理函數
-    function processCsvData(csvData) {
-        console.log('開始處理CSV資料...');
-        try {
-            // 移除 BOM 標記和處理換行符
-            const cleanCsv = csvData.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-            
-            // 解析CSV資料
-            const rows = cleanCsv.split('\n').filter(row => row.trim());
-            console.log('CSV總行數:', rows.length);
-            
-            // 檢查標題行
-            const headers = rows[0].split(',');
-            console.log('CSV檔案標題:', headers);
-
-            // 跳過標題行
-            institutionsData = rows.slice(1).map(row => {
-                // 使用正則表達式來正確分割 CSV，處理引號內的逗號
-                const columns = row.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g).map(col => 
-                    col.replace(/^"|"$/g, '').trim()
-                );
-                
-                const item = {
-                    序: columns[0],
-                    類別: columns[1],
-                    系統帳號: columns[2],
-                    單一職訓機構: columns[3],
-                    職訓機構名稱: columns[4],
-                    管理: columns[5],
-                    技術: columns[6],
-                    主管機關: columns[7],
-                    負責人職稱: columns[8],
-                    負責人: columns[9],
-                    電話: columns[10],
-                    信箱: columns[11],
-                    地址: columns[12],
-                    地址經緯度: columns[13]
-                };
-
-                // 檢查必要欄位
-                if (!item.職訓機構名稱 || !item.地址經緯度) {
-                    console.log('發現無效的資料項目:', item);
-                }
-
-                return item;
-            }).filter(item => {
-                const isValid = item.職訓機構名稱 && item.地址經緯度;
-                return isValid;
-            });
-
-            console.log('成功解析資料筆數:', institutionsData.length);
-            if (institutionsData.length > 0) {
-                console.log('第一筆資料樣本:', institutionsData[0]);
-            }
-
-            // 初始化類別選擇
-            const categories = [...new Set(institutionsData.map(item => item.類別))];
-            categorySelect.innerHTML = '<option value="">所有類別</option>';
-            categories.forEach(category => {
-                if (category) {
-                    const option = document.createElement('option');
-                    option.value = category;
-                    option.textContent = category;
-                    categorySelect.appendChild(option);
-                }
-            });
-
-            // 定義等級的順序
-            const levelOrder = ['優等', '甲等', '乙等', '丙等', '丁等', '無', '乙等(僅檔案紀錄)'];
-            
-            // 初始化管理等級選擇，按照指定順序
-            managementSelect.innerHTML = '<option value="">所有管理等級</option>';
-            // 從數據中獲取所有不重複的管理等級
-            const uniqueManagementLevels = [...new Set(institutionsData.map(item => item.管理))];
-            console.log('管理等級唯一值:', uniqueManagementLevels); // 調試用
-            
-            // 按指定順序添加選項
-            levelOrder.forEach(level => {
-                if (uniqueManagementLevels.includes(level)) {
-                    const option = document.createElement('option');
-                    option.value = level;
-                    option.textContent = level;
-                    managementSelect.appendChild(option);
-                }
-            });
-            
-            // 確保所有唯一值都被添加，防止缺少選項
-            uniqueManagementLevels.forEach(level => {
-                if (level && !levelOrder.includes(level)) {
-                    console.log('發現未在預定義順序中的管理等級:', level);
-                    const option = document.createElement('option');
-                    option.value = level;
-                    option.textContent = level;
-                    managementSelect.appendChild(option);
-                }
-            });
-
-            // 初始化技術等級選擇，按照指定順序
-            technicalSelect.innerHTML = '<option value="">所有技術等級</option>';
-            // 從數據中獲取所有不重複的技術等級
-            const uniqueTechnicalLevels = [...new Set(institutionsData.map(item => item.技術))];
-            console.log('技術等級唯一值:', uniqueTechnicalLevels); // 調試用
-            
-            // 按指定順序添加選項
-            levelOrder.forEach(level => {
-                if (uniqueTechnicalLevels.includes(level)) {
-                    const option = document.createElement('option');
-                    option.value = level;
-                    option.textContent = level;
-                    technicalSelect.appendChild(option);
-                }
-            });
-            
-            // 確保所有唯一值都被添加，防止缺少選項
-            uniqueTechnicalLevels.forEach(level => {
-                if (level && !levelOrder.includes(level)) {
-                    console.log('發現未在預定義順序中的技術等級:', level);
-                    const option = document.createElement('option');
-                    option.value = level;
-                    option.textContent = level;
-                    technicalSelect.appendChild(option);
-                }
-            });
-
-            // 設置搜尋和篩選事件
-            searchInput.addEventListener('input', updateFilters);
-            categorySelect.addEventListener('change', updateFilters);
-            managementSelect.addEventListener('change', updateFilters);
-            technicalSelect.addEventListener('change', updateFilters);
-
-            // 顯示所有資料
-            filterData();
-            displayMarkers();
-        } catch (error) {
-            console.error('處理CSV資料時發生錯誤:', error);
-            resultCount.textContent = '處理資料時發生錯誤';
-        }
-    }
-
-    institutionListElement = document.getElementById('institution-list');
-
     // 更新篩選器
     function updateFilters() {
         currentFilter = searchInput.value.trim().toLowerCase();
-        currentCategory = categorySelect.value;
-        currentAgency = agencySelect.value;
-        currentManagement = managementSelect.value;
-        currentTechnical = technicalSelect.value;
+        
+        // 獲取多選值
+        currentCategories = Array.from(categorySelect.selectedOptions).map(option => option.value).filter(val => val !== '');
+        currentAgencies = Array.from(agencySelect.selectedOptions).map(option => option.value).filter(val => val !== '');
+        currentManagements = Array.from(managementSelect.selectedOptions).map(option => option.value).filter(val => val !== '');
+        currentTechnicals = Array.from(technicalSelect.selectedOptions).map(option => option.value).filter(val => val !== '');
         
         console.log('更新篩選條件:', {
             search: currentFilter,
-            category: currentCategory,
-            agency: currentAgency,
-            management: currentManagement,
-            technical: currentTechnical
+            categories: currentCategories,
+            agencies: currentAgencies,
+            managements: currentManagements,
+            technicals: currentTechnicals
         });
         
         filterData();
@@ -352,17 +179,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // 過濾資料函數
     function filterData() {
         filteredData = institutionsData.filter(item => {
-            // 根據類別過濾
-            const matchCategory = !currentCategory || item.類別 === currentCategory;
+            // 根據類別過濾（支援多選）
+            const matchCategory = currentCategories.length === 0 || currentCategories.includes(item.類別);
 
-            // 根據管理等級過濾
-            const matchManagement = !currentManagement || item.管理 === currentManagement;
+            // 根據管理等級過濾（支援多選）
+            const matchManagement = currentManagements.length === 0 || currentManagements.includes(item.管理);
 
-            // 根據技術等級過濾
-            const matchTechnical = !currentTechnical || item.技術 === currentTechnical;
+            // 根據技術等級過濾（支援多選）
+            const matchTechnical = currentTechnicals.length === 0 || currentTechnicals.includes(item.技術);
             
-            // 根據主管機關過濾
-            const matchAgency = !currentAgency || item.主管機關 === currentAgency;
+            // 根據主管機關過濾（支援多選）
+            const matchAgency = currentAgencies.length === 0 || currentAgencies.includes(item.主管機關);
 
             // 根據搜尋關鍵字過濾
             let matchSearch = true;
@@ -499,4 +326,260 @@ document.addEventListener('DOMContentLoaded', function() {
         // 更新機構列表
         updateInstitutionList();
     }
+
+    const downloadButton = document.getElementById('download-button');
+    
+    // 添加下載按鈕點擊事件
+    downloadButton.addEventListener('click', () => {
+        downloadFilteredData();
+    });
+
+    // 下載篩選後的資料
+    function downloadFilteredData() {
+        // 準備 Excel 工作表資料
+        const headers = ['序', '類別', '系統帳號', '單一職訓機構', '職訓機構名稱', '管理', '技術',
+                        '主管機關', '負責人職稱', '負責人', '電話', '信箱', '地址', '地址經緯度'];
+        
+        const data = [
+            headers,
+            ...filteredData.map(item => [
+                item.序,
+                item.類別,
+                { v: formatAccountNumber(item.系統帳號), t: 's' }, // 設定為文字格式
+                item.單一職訓機構,
+                item.職訓機構名稱,
+                item.管理,
+                item.技術,
+                item.主管機關,
+                item.負責人職稱,
+                item.負責人,
+                item.電話,
+                item.信箱,
+                item.地址,
+                item.地址經緯度
+            ])
+        ];
+        
+        // 創建工作表
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // 設定系統帳號欄位的格式為文字
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for(let R = 1; R <= range.e.r; ++R) {
+            const cell_address = XLSX.utils.encode_cell({r: R, c: 2}); // 系統帳號是第三欄 (索引 2)
+            if(!ws[cell_address]) continue;
+            
+            // 確保系統帳號欄位使用文字格式
+            ws[cell_address].t = 's';
+            ws[cell_address].z = '@';
+            
+            // 強制將值轉換為字串格式
+            if (ws[cell_address].v && typeof ws[cell_address].v === 'object') {
+                ws[cell_address].v = ws[cell_address].v.v;
+            }
+        }
+        
+        // 創建工作簿並添加工作表
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '職訓機構列表');
+        
+        // 設定檔案名稱
+        const date = new Date().toLocaleDateString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).replace(/\//g, '');
+        
+        // 下載檔案
+        XLSX.writeFile(wb, `職訓機構列表_${date}.xlsx`);
+    }
+
+    // 初始化選擇器時的處理函數
+    function initializeSelect(selectElement, options, title) {
+        selectElement.innerHTML = '';
+        
+        // 添加全選選項
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = `所有${title}`;
+        selectElement.appendChild(allOption);
+        
+        // 添加選項
+        options.forEach(option => {
+            if (option) {
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.textContent = option;
+                selectElement.appendChild(optionElement);
+            }
+        });
+        
+        // 更新選擇器標題
+        updateSelectTitle(selectElement, title);
+        
+        // 添加變更事件監聽器
+        selectElement.addEventListener('change', () => {
+            // 如果選擇了「所有XX」選項，取消其他所有選項
+            const selectedOptions = Array.from(selectElement.selectedOptions);
+            if (selectedOptions.some(opt => opt.value === '')) {
+                Array.from(selectElement.options).forEach(opt => {
+                    if (opt.value !== '') {
+                        opt.selected = false;
+                    }
+                });
+            }
+            updateSelectTitle(selectElement, title);
+            updateFilters();
+        });
+    }
+
+    // 更新選擇器標題
+    function updateSelectTitle(selectElement, title) {
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        const selectedCount = selectedOptions.filter(option => option.value !== '').length;
+        
+        if (selectedOptions.some(opt => opt.value === '')) {
+            selectElement.title = `所有${title}`;
+        } else if (selectedCount > 0) {
+            selectElement.title = `已選擇 ${selectedCount} 個${title}`;
+        } else {
+            selectElement.title = `選擇${title}`;
+        }
+    }
+
+    // 更新 Excel 資料處理函數
+    function processExcelData(jsonData) {
+        console.log('開始處理Excel資料...');
+        try {
+            // 轉換JSON資料為所需格式
+            institutionsData = jsonData.map((row, index) => {
+                console.log(`處理第 ${index + 1} 筆資料:`, row);
+                return {
+                    序: row.序,
+                    類別: row.類別,
+                    系統帳號: row.系統帳號,
+                    單一職訓機構: row.單一職訓機構,
+                    職訓機構名稱: row.職訓機構名稱,
+                    管理: row.管理,
+                    技術: row.技術,
+                    主管機關: row.主管機關,
+                    負責人職稱: row.負責人職稱,
+                    負責人: row.負責人,
+                    電話: row.電話,
+                    信箱: row.信箱,
+                    地址: row.地址,
+                    地址經緯度: row.地址經緯度
+                };
+            }).filter(item => {
+                const isValid = item.職訓機構名稱 && item.地址經緯度;
+                if (!isValid) {
+                    console.log('發現無效資料:', item);
+                }
+                return isValid;
+            });
+
+            console.log('成功解析資料筆數:', institutionsData.length);
+            if (institutionsData.length > 0) {
+                console.log('第一筆資料樣本:', institutionsData[0]);
+            }
+
+            // 定義等級的順序
+            const levelOrder = ['優等', '甲等', '乙等', '丙等', '丁等', '無', '乙等(僅檔案紀錄)'];
+            
+            // 定義主管機關順序
+            const orderedAgencies = [
+                '基隆市政府', '臺北市政府', '新北市政府', '桃園市政府', 
+                '新竹市政府', '新竹縣政府', '苗栗縣政府', '臺中市政府', 
+                '彰化縣政府', '南投縣政府', '雲林縣政府', '嘉義市政府', 
+                '嘉義縣政府', '臺南市政府', '高雄市政府', '屏東縣政府',
+                '宜蘭縣政府', '花蓮縣政府', '臺東縣政府', '澎湖縣政府',
+                '金門縣政府', '連江縣政府'
+            ];
+
+            // 使用新的初始化函數
+            console.log('開始初始化選擇器...');
+
+            const categories = [...new Set(institutionsData.map(item => item.類別))].filter(category => category);
+            console.log('找到的類別:', categories);
+            initializeSelect(categorySelect, categories, '類別');
+
+            const uniqueManagementLevels = [...new Set(institutionsData.map(item => item.管理))].filter(level => level);
+            console.log('找到的管理等級:', uniqueManagementLevels);
+            initializeSelect(managementSelect, levelOrder.filter(level => uniqueManagementLevels.includes(level)), '管理等級');
+
+            const uniqueTechnicalLevels = [...new Set(institutionsData.map(item => item.技術))].filter(level => level);
+            console.log('找到的技術等級:', uniqueTechnicalLevels);
+            initializeSelect(technicalSelect, levelOrder.filter(level => uniqueTechnicalLevels.includes(level)), '技術等級');
+
+            // 修正主管機關初始化，確保所有主管機關都會顯示
+            const uniqueAgencies = [...new Set(institutionsData.map(item => item.主管機關))].filter(agency => agency);
+            console.log('找到的主管機關:', uniqueAgencies);
+            
+            // 先加入有序的主管機關
+            const orderedUniqueAgencies = [];
+            orderedAgencies.forEach(agency => {
+                if (uniqueAgencies.includes(agency)) {
+                    orderedUniqueAgencies.push(agency);
+                }
+            });
+            
+            // 再加入其他未在排序中的主管機關
+            uniqueAgencies.forEach(agency => {
+                if (!orderedAgencies.includes(agency)) {
+                    orderedUniqueAgencies.push(agency);
+                }
+            });
+            
+            initializeSelect(agencySelect, orderedUniqueAgencies, '主管機關');
+
+            // 顯示所有資料
+            console.log('開始顯示資料...');
+            filterData();
+            displayMarkers();
+
+        } catch (error) {
+            console.error('處理Excel資料時發生錯誤:', error);
+            resultCount.textContent = '處理資料時發生錯誤';
+        }
+    }
+
+    // 更新 Excel 讀取邏輯
+    console.log('開始讀取Excel檔案...');
+    
+    fetch(xlsxPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            console.log('成功獲取檔案回應');
+            return response.arrayBuffer();
+        })
+        .then(buffer => {
+            console.log('開始解析Excel檔案...');
+            const data = new Uint8Array(buffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            console.log('工作表清單:', workbook.SheetNames);
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // 將工作表轉換為 JSON 格式
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                header: ['序', '類別', '系統帳號', '單一職訓機構', '職訓機構名稱', 
+                        '管理', '技術', '主管機關', '負責人職稱', '負責人',
+                        '電話', '信箱', '地址', '地址經緯度'],
+                range: 1  // 跳過標題行
+            });
+            
+            console.log('成功讀取Excel資料，資料長度:', jsonData.length);
+            if (jsonData.length > 0) {
+                console.log('第一筆原始資料:', jsonData[0]);
+            }
+            
+            processExcelData(jsonData);
+        })
+        .catch(error => {
+            console.error('讀取Excel檔案發生錯誤:', error);
+            resultCount.textContent = '讀取資料時發生錯誤';
+        });
 });

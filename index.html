@@ -67,6 +67,18 @@
             min-width: 150px;
             font-size: 14px;
             background-color: white;
+            height: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        /* 添加選擇器多選時的樣式 */
+        #category-select option:checked,
+        #agency-select option:checked,
+        #management-select option:checked,
+        #technical-select option:checked {
+            background-color: #e3f2fd;
+            color: #000;
         }
         
         #result-count {
@@ -76,6 +88,27 @@
             white-space: nowrap;
         }
 
+        #download-button {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        #download-button:hover {
+            background-color: #218838;
+        }
+        
+        #download-button:active {
+            background-color: #1e7e34;
+        }
+        
         #content-container {
             display: flex;
             flex: 1;
@@ -278,19 +311,20 @@
         
         <div id="controls">
             <input type="text" id="search-input" placeholder="搜尋機構名稱、地址..." />
-            <select id="category-select">
+            <select id="category-select" multiple>
                 <option value="">所有類別</option>
             </select>
-            <select id="agency-select">
+            <select id="agency-select" multiple>
                 <option value="">所有主管機關</option>
             </select>
-            <select id="management-select">
+            <select id="management-select" multiple>
                 <option value="">所有管理等級</option>
             </select>
-            <select id="technical-select">
+            <select id="technical-select" multiple>
                 <option value="">所有技術等級</option>
             </select>
             <div id="result-count"></div>
+            <button id="download-button">下載</button>
         </div>
 
         <div id="content-container">
@@ -309,6 +343,9 @@
     
     <!-- MarkerCluster JS -->
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    
+    <!-- XLSX Library -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     
     <script src="map.js"></script>
 </body>
