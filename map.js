@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultCount = document.getElementById('result-count');
     let currentFilter = '';
     let currentCategory = '';
-    let currentAgency = '';
+    let currentAgency = '';  // 添加主管機關當前選擇
     let institutionListElement;
     let activeMarker = null;
     let activeListItem = null;
@@ -118,13 +118,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const managementSelect = document.createElement('select');
     managementSelect.id = 'management-select';
     managementSelect.innerHTML = '<option value="">所有管理等級</option>';
-    document.getElementById('controls').insertBefore(managementSelect, resultCount);
-
+    
     const technicalSelect = document.createElement('select');
     technicalSelect.id = 'technical-select';
     technicalSelect.innerHTML = '<option value="">所有技術等級</option>';
-    document.getElementById('controls').insertBefore(technicalSelect, resultCount);
-
+    
+    // 調整控制項順序
+    const controls = document.getElementById('controls');
+    controls.insertBefore(managementSelect, resultCount);
+    controls.insertBefore(technicalSelect, resultCount);
+    
+    // 確保主管機關選擇器在正確的位置
+    const agencySelect = document.getElementById('agency-select');
+    
     console.log('開始讀取CSV檔案...');
 
     // 使用簡化的CSV檔案路徑處理方式，適合網頁部署
@@ -272,16 +278,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            // 初始化主管機關選擇，按照指定順序
-            agencySelect.innerHTML = '<option value="">所有主管機關</option>';
+            // 主管機關初始化應該在這裡進行
+            console.log('開始初始化主管機關選項...');
             
             // 從數據中獲取所有不重複的主管機關
             const uniqueAgencies = [...new Set(institutionsData.map(item => item.主管機關))].filter(agency => agency);
-            console.log('主管機關唯一值:', uniqueAgencies);
+            console.log('找到的主管機關:', uniqueAgencies);
             
-            // 先添加預定義順序中的主管機關
+            // 清空並重新設置主管機關選擇器
+            agencySelect.innerHTML = '<option value="">所有主管機關</option>';
+            
+            // 按照指定順序添加主管機關
             orderedAgencies.forEach(agency => {
                 if (uniqueAgencies.includes(agency)) {
+                    console.log('添加主管機關:', agency);
                     const option = document.createElement('option');
                     option.value = agency;
                     option.textContent = agency;
@@ -291,16 +301,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 添加不在預定義順序中的其他主管機關
             uniqueAgencies.forEach(agency => {
-                if (!orderedAgencies.includes(agency)) {
+                if (agency && !orderedAgencies.includes(agency)) {
+                    console.log('添加其他主管機關:', agency);
                     const option = document.createElement('option');
                     option.value = agency;
                     option.textContent = agency;
                     agencySelect.appendChild(option);
                 }
             });
-
-            // 添加主管機關變更事件監聽器
-            agencySelect.addEventListener('change', updateFilters);
+            
+            // 設置事件監聽器
+            agencySelect.addEventListener('change', () => {
+                currentAgency = agencySelect.value;
+                console.log('選擇的主管機關:', currentAgency);
+                updateFilters();
+            });
 
             // 設置搜尋和篩選事件
             searchInput.addEventListener('input', updateFilters);
@@ -323,7 +338,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFilters() {
         currentFilter = searchInput.value.trim().toLowerCase();
         currentCategory = categorySelect.value;
-        currentAgency = agencySelect.value;
         filterData();
         displayMarkers();
         updateInstitutionList(); // 新增：更新列表
