@@ -281,9 +281,21 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFilters() {
         currentFilter = searchInput.value.trim().toLowerCase();
         currentCategory = categorySelect.value;
+        currentAgency = agencySelect.value;
+        currentManagement = managementSelect.value;
+        currentTechnical = technicalSelect.value;
+        
+        console.log('更新篩選條件:', {
+            search: currentFilter,
+            category: currentCategory,
+            agency: currentAgency,
+            management: currentManagement,
+            technical: currentTechnical
+        });
+        
         filterData();
         displayMarkers();
-        updateInstitutionList(); // 新增：更新列表
+        updateInstitutionList();
     }
 
     // 更新機構列表
@@ -341,18 +353,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 過濾資料函數
     function filterData() {
-        const managementLevel = managementSelect.value;
-        const technicalLevel = technicalSelect.value;
-
         filteredData = institutionsData.filter(item => {
             // 根據類別過濾
             const matchCategory = !currentCategory || item.類別 === currentCategory;
 
             // 根據管理等級過濾
-            const matchManagement = !managementLevel || item.管理 === managementLevel;
+            const matchManagement = !currentManagement || item.管理 === currentManagement;
 
             // 根據技術等級過濾
-            const matchTechnical = !technicalLevel || item.技術 === technicalLevel;
+            const matchTechnical = !currentTechnical || item.技術 === currentTechnical;
+            
+            // 根據主管機關過濾
+            const matchAgency = !currentAgency || item.主管機關 === currentAgency;
 
             // 根據搜尋關鍵字過濾
             let matchSearch = true;
@@ -365,11 +377,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
             }
 
-            return matchCategory && matchManagement && matchTechnical && matchSearch;
+            return matchCategory && matchManagement && matchTechnical && matchAgency && matchSearch;
         });
 
         // 更新結果計數
-        resultCount.textContent = `共 ${filteredData.length} 筆結果`;
+        const resultCountText = `共 ${filteredData.length} 筆結果`;
+        console.log(resultCountText);
+        resultCount.textContent = resultCountText;
     }
 
     // 顯示標記
