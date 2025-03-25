@@ -73,12 +73,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 建立標記群組
+    // 建立標記群組，調整群集設定
     const markers = L.markerClusterGroup({
         maxClusterRadius: 50,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: true,
-        zoomToBoundsOnClick: true
+        zoomToBoundsOnClick: true,
+        spiderfyDistanceMultiplier: 1.5,  // 增加展開時的距離
+        animate: false  // 關閉動畫以提高穩定性
     });
 
     let institutionsData = [];
@@ -91,7 +93,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const agencySelect = document.getElementById('agency-select');
     const managementSelect = document.getElementById('management-select');
     const technicalSelect = document.getElementById('technical-select');
-    const resultCount = document.getElementById('result-count');
     const institutionListElement = document.getElementById('institution-list');
     let activeListItem = null;
     
@@ -132,6 +133,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 更新機構列表
     function updateInstitutionList() {
         institutionListElement.innerHTML = '';
+        const filteredLength = filteredData.length;
+        
+        const listCount = document.getElementById('list-count');
+        if (listCount) {
+            listCount.textContent = `共 ${filteredLength} 筆結果`;
+        }
         
         filteredData.forEach((item, index) => {
             const listItem = document.createElement('li');
@@ -151,34 +158,36 @@ document.addEventListener('DOMContentLoaded', function() {
             listItem.addEventListener('click', () => {
                 const coordinates = getCoordinatesFromString(item.地址經緯度);
                 if (coordinates) {
-                    // 移除之前的活動狀態
                     if (activeListItem) {
                         activeListItem.classList.remove('active');
                     }
                     
-                    // 設置新的活動狀態
                     listItem.classList.add('active');
                     activeListItem = listItem;
 
-                    // 平滑移動到地圖位置
-                    map.setView(coordinates, 16, {
-                        animate: true,
-                        duration: 1
-                    });
-                    
-                    // 直接使用存儲的標記引用
                     const targetMarker = markerReferences[index];
                     if (targetMarker) {
-                        // 確保標記從群集中展開
-                        markers.zoomToShowLayer(targetMarker, () => {
-                            targetMarker.openPopup();
-                            console.log('成功開啟機構資訊：', item.職訓機構名稱);
-                        });
+                        // 先將地圖縮放到最大
+                        map.setView(coordinates, map.getMaxZoom());
+                        
+                        // 等待地圖縮放完成後再處理標記點
+                        setTimeout(() => {
+                            // 確保標記點從群集中展開
+                            markers.zoomToShowLayer(targetMarker, () => {
+                                // 在展開完成後，確保標記點可見
+                                map.setView(coordinates, map.getZoom(), {
+                                    animate: false
+                                });
+                                
+                                // 最後開啟資訊視窗
+                                targetMarker.openPopup();
+                                console.log('成功開啟機構資訊：', item.職訓機構名稱);
+                            });
+                        }, 300);
                     } else {
                         console.error('找不到對應的標記點', index, coordinates);
                     }
 
-                    // 確保列表項目在視圖中
                     listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
@@ -189,37 +198,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 過濾資料函數
     function filterData() {
-        filteredData = institutionsData.filter(item => {
-            // 根據類別過濾（支援多選）
-            const matchCategory = currentCategories.length === 0 || currentCategories.includes(item.類別);
+        try {
+            filteredData = institutionsData.filter(item => {
+                // 根據類別過濾（支援多選）
+                const matchCategory = currentCategories.length === 0 || currentCategories.includes(item.類別);
 
-            // 根據管理等級過濾（支援多選）
-            const matchManagement = currentManagements.length === 0 || currentManagements.includes(item.管理);
+                // 根據管理等級過濾（支援多選）
+                const matchManagement = currentManagements.length === 0 || currentManagements.includes(item.管理);
 
-            // 根據技術等級過濾（支援多選）
-            const matchTechnical = currentTechnicals.length === 0 || currentTechnicals.includes(item.技術);
-            
-            // 根據主管機關過濾（支援多選）
-            const matchAgency = currentAgencies.length === 0 || currentAgencies.includes(item.主管機關);
+                // 根據技術等級過濾（支援多選）
+                const matchTechnical = currentTechnicals.length === 0 || currentTechnicals.includes(item.技術);
+                
+                // 根據主管機關過濾（支援多選）
+                const matchAgency = currentAgencies.length === 0 || currentAgencies.includes(item.主管機關);
 
-            // 根據搜尋關鍵字過濾
-            let matchSearch = true;
-            if (currentFilter) {
-                matchSearch = (
-                    (item.職訓機構名稱 && item.職訓機構名稱.toLowerCase().includes(currentFilter)) ||
-                    (item.地址 && item.地址.toLowerCase().includes(currentFilter)) ||
-                    (item.類別 && item.類別.toLowerCase().includes(currentFilter)) ||
-                    (item.主管機關 && item.主管機關.toLowerCase().includes(currentFilter))
-                );
+                // 根據搜尋關鍵字過濾
+                let matchSearch = true;
+                if (currentFilter) {
+                    matchSearch = (
+                        (item.職訓機構名稱 && item.職訓機構名稱.toLowerCase().includes(currentFilter)) ||
+                        (item.地址 && item.地址.toLowerCase().includes(currentFilter)) ||
+                        (item.類別 && item.類別.toLowerCase().includes(currentFilter)) ||
+                        (item.主管機關 && item.主管機關.toLowerCase().includes(currentFilter))
+                    );
+                }
+
+                return matchCategory && matchManagement && matchTechnical && matchAgency && matchSearch;
+            });
+
+            // 更新結果計數
+            const listCount = document.getElementById('list-count');
+            if (listCount) {
+                listCount.textContent = `共 ${filteredData.length} 筆結果`;
             }
 
-            return matchCategory && matchManagement && matchTechnical && matchAgency && matchSearch;
-        });
-
-        // 更新結果計數
-        const resultCountText = `共 ${filteredData.length} 筆結果`;
-        console.log(resultCountText);
-        resultCount.textContent = resultCountText;
+        } catch (error) {
+            console.error('過濾資料時發生錯誤:', error);
+        }
     }
 
     // 顯示標記
@@ -559,16 +574,19 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('開始顯示資料...');
             filterData();
             displayMarkers();
+            updateInstitutionList();
 
         } catch (error) {
             console.error('處理Excel資料時發生錯誤:', error);
-            resultCount.textContent = '處理資料時發生錯誤';
+            // 確保錯誤訊息顯示在正確的位置
+            const listCount = document.getElementById('list-count');
+            if (listCount) {
+                listCount.textContent = '處理資料時發生錯誤';
+            }
         }
     }
 
-    // 更新 Excel 讀取邏輯
-    console.log('開始讀取Excel檔案...');
-    
+    // Excel 檔案讀取錯誤處理
     fetch(xlsxPath)
         .then(response => {
             if (!response.ok) {
@@ -603,6 +621,9 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('讀取Excel檔案發生錯誤:', error);
-            resultCount.textContent = '讀取資料時發生錯誤';
+            const listCount = document.getElementById('list-count');
+            if (listCount) {
+                listCount.textContent = '讀取資料時發生錯誤';
+            }
         });
 });

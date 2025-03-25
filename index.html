@@ -89,16 +89,14 @@
         }
 
         #download-button {
-            padding: 8px 16px;
+            padding: 4px 8px;
             background-color: #28a745;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            font-size: 12px;
+            margin-left: 4px;
         }
         
         #download-button:hover {
@@ -323,13 +321,17 @@
             <select id="technical-select" multiple>
                 <option value="">所有技術等級</option>
             </select>
-            <div id="result-count"></div>
-            <button id="download-button">下載</button>
         </div>
 
         <div id="content-container">
             <div id="list-container">
-                <div id="list-header">職訓機構列表</div>
+                <div id="list-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span>職訓機構列表</span>
+                        <span id="list-count" style="color: #666; font-size: 14px; font-weight: normal;"></span>
+                        <button id="download-button" style="padding: 4px 8px; font-size: 12px; margin-left: 4px;">下載</button>
+                    </div>
+                </div>
                 <ul id="institution-list"></ul>
             </div>
             <div id="map"></div>
