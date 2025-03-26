@@ -433,6 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const allOption = document.createElement('option');
         allOption.value = '';
         allOption.textContent = `所有${title}`;
+        allOption.selected = true; // 預設選擇「所有」選項
         selectElement.appendChild(allOption);
         
         // 添加選項
@@ -458,6 +459,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         opt.selected = false;
                     }
                 });
+            }
+            // 如果沒有選擇任何選項，自動選擇「所有」選項
+            if (Array.from(selectElement.selectedOptions).length === 0) {
+                selectElement.options[0].selected = true;
             }
             updateSelectTitle(selectElement, title);
             updateFilters();
