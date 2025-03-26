@@ -130,6 +130,39 @@ document.addEventListener('DOMContentLoaded', function() {
         updateInstitutionList();
     }
 
+    // 列表項目點擊處理函數
+    function handleItemClick(item, index, listItem) {
+        const coordinates = getCoordinatesFromString(item.地址經緯度);
+        if (coordinates) {
+            if (activeListItem) {
+                activeListItem.classList.remove('active');
+            }
+            
+            listItem.classList.add('active');
+            activeListItem = listItem;
+
+            const targetMarker = markerReferences[index];
+            if (targetMarker) {
+                // 關閉其他已開啟的彈出視窗
+                markers.eachLayer((layer) => {
+                    if (layer !== targetMarker && layer.isPopupOpen()) {
+                        layer.closePopup();
+                    }
+                });
+
+                // 設定地圖視圖
+                map.setView(coordinates, 15);
+
+                // 確保標記點可見並開啟彈出視窗
+                setTimeout(() => {
+                    targetMarker.openPopup();
+                }, 100);
+            }
+
+            listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
     // 更新機構列表
     function updateInstitutionList() {
         institutionListElement.innerHTML = '';
@@ -146,50 +179,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const content = `
                 <div class="institution-number">#${index + 1}</div>
-                <div class="institution-name">${item.職訓機構名稱}</div>
-                <div class="institution-details">
-                    ${item.類別} | ${item.管理 || '無'} | ${item.技術 || '無'}
+                <div class="institution-info">
+                    <div class="institution-name">${item.職訓機構名稱}</div>
+                    <div class="institution-details">
+                        ${item.類別} | ${item.管理 || '無'} | ${item.技術 || '無'}
+                    </div>
                 </div>
             `;
             
             listItem.innerHTML = content;
             
-            // 點擊列表項目時觸發
+            // 使用統一的點擊處理函數
             listItem.addEventListener('click', () => {
-                const coordinates = getCoordinatesFromString(item.地址經緯度);
-                if (coordinates) {
-                    if (activeListItem) {
-                        activeListItem.classList.remove('active');
-                    }
-                    
-                    listItem.classList.add('active');
-                    activeListItem = listItem;
-
-                    const targetMarker = markerReferences[index];
-                    if (targetMarker) {
-                        // 先將地圖縮放到最大
-                        map.setView(coordinates, map.getMaxZoom());
-                        
-                        // 等待地圖縮放完成後再處理標記點
-                        setTimeout(() => {
-                            // 確保標記點從群集中展開
-                            markers.zoomToShowLayer(targetMarker, () => {
-                                // 在展開完成後，確保標記點可見
-                                map.setView(coordinates, map.getZoom(), {
-                                    animate: false
-                                });
-                                
-                                // 最後開啟資訊視窗
-                                targetMarker.openPopup();
-                                console.log('成功開啟機構資訊：', item.職訓機構名稱);
-                            });
-                        }, 300);
-                    } else {
-                        console.error('找不到對應的標記點', index, coordinates);
-                    }
-
-                    listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
+                handleItemClick(item, index, listItem);
             });
             
             institutionListElement.appendChild(listItem);
@@ -262,8 +264,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 validMarkersCount++;
                 
                 const marker = L.marker(coordinates, { icon: defaultIcon });
-                // 清楚地在每個標記創建時保存引用
                 markerReferences[index] = marker;
+                
+                // 設置標記點的層級
+                marker.setZIndexOffset(1000);
                 
                 // 標記點彈出資訊
                 const popupContent = `
@@ -310,24 +314,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
                 
-                marker.bindPopup(popupContent, {
+                // 創建彈出視窗
+                const popup = L.popup({
                     className: 'custom-popup',
-                    maxWidth: 300
-                });
+                    maxWidth: 300,
+                    autoPan: true,
+                    closeButton: true,
+                    autoClose: false,
+                    closeOnClick: false,
+                    closeOnEscapeKey: true
+                }).setContent(popupContent);
+
+                // 綁定彈出視窗到標記點
+                marker.bindPopup(popup);
 
                 // 當標記被點擊時
                 marker.on('click', () => {
-                    // 移除之前列表項目的活動狀態
-                    if (activeListItem) {
-                        activeListItem.classList.remove('active');
-                    }
-                    
+                    // 關閉其他已開啟的彈出視窗
+                    markers.eachLayer((layer) => {
+                        if (layer !== marker && layer.isPopupOpen()) {
+                            layer.closePopup();
+                        }
+                    });
+
                     // 找到對應的列表項目並設置活動狀態
                     const listItems = institutionListElement.getElementsByClassName('institution-item');
                     if (listItems[index]) {
+                        // 移除之前列表項目的活動狀態
+                        if (activeListItem) {
+                            activeListItem.classList.remove('active');
+                        }
+                        
                         listItems[index].classList.add('active');
                         activeListItem = listItems[index];
-                        // 確保列表項目在視圖中
                         listItems[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 });
@@ -433,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const allOption = document.createElement('option');
         allOption.value = '';
         allOption.textContent = `所有${title}`;
-        allOption.selected = true; // 預設選擇「所有」選項
+        allOption.selected = true;
         selectElement.appendChild(allOption);
         
         // 添加選項
@@ -450,20 +469,30 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSelectTitle(selectElement, title);
         
         // 添加變更事件監聽器
-        selectElement.addEventListener('change', () => {
-            // 如果選擇了「所有XX」選項，取消其他所有選項
+        selectElement.addEventListener('change', (event) => {
             const selectedOptions = Array.from(selectElement.selectedOptions);
-            if (selectedOptions.some(opt => opt.value === '')) {
+            const allOptionSelected = selectedOptions.some(opt => opt.value === '');
+            const otherOptionsSelected = selectedOptions.some(opt => opt.value !== '');
+
+            // 如果選擇了非「所有」的選項，取消「所有」選項
+            if (otherOptionsSelected && allOptionSelected) {
+                allOption.selected = false;
+            }
+            
+            // 如果選擇了「所有」選項，取消其他所有選項
+            if (allOptionSelected) {
                 Array.from(selectElement.options).forEach(opt => {
                     if (opt.value !== '') {
                         opt.selected = false;
                     }
                 });
             }
+
             // 如果沒有選擇任何選項，自動選擇「所有」選項
             if (Array.from(selectElement.selectedOptions).length === 0) {
-                selectElement.options[0].selected = true;
+                allOption.selected = true;
             }
+
             updateSelectTitle(selectElement, title);
             updateFilters();
         });
@@ -631,4 +660,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 listCount.textContent = '讀取資料時發生錯誤';
             }
         });
+
+    // 回到頂端按鈕功能
+    const backToTopButton = document.getElementById('back-to-top');
+
+    // 監聽頁面捲動事件
+    window.addEventListener('scroll', () => {
+        if (window.innerWidth <= 768) { // 只在手機版面啟用
+            // 當頁面捲動超過 200px 時顯示按鈕
+            if (window.pageYOffset > 200) {
+                backToTopButton.style.display = 'block';
+            } else {
+                backToTopButton.style.display = 'none';
+            }
+        }
+    });
+
+    // 點擊回到頂端按鈕
+    backToTopButton.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
 });

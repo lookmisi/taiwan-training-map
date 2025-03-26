@@ -18,12 +18,14 @@
             padding: 0;
             height: 100%;
             font-family: Arial, sans-serif;
+            overflow: hidden; /* 防止頁面整體捲動 */
         }
         
         #container {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            height: 100vh; /* 使用視窗高度 */
+            overflow: hidden; /* 防止容器溢出 */
         }
         
         #header {
@@ -138,34 +140,95 @@
         }
 
         .institution-item {
-            padding: 10px 15px;
+            padding: 10px 12px;
+            min-height: 48px; /* 將最小高度從 52px 改為 48px */
+            height: auto;
+            display: flex;
+            align-items: flex-start;
             border-bottom: 1px solid #eee;
             cursor: pointer;
             transition: background-color 0.2s;
+            background-color: white;
         }
 
-        .institution-item:hover {
-            background-color: #f5f5f5;
+        /* 網頁版面時的佈局 */
+        @media (min-width: 769px) {
+            .institution-item {
+                flex-direction: column;
+                padding: 8px 12px; /* 適當調整內邊距 */
+            }
+
+            .institution-number {
+                margin-bottom: 4px;
+            }
+
+            .institution-info {
+                width: 100%;
+            }
+
+            .institution-name {
+                margin: 0;
+                line-height: 1.1;
+                padding: 0;
+                margin-bottom: 0;
+            }
+
+            .institution-details {
+                line-height: 1;
+                padding: 0;
+                margin-top: -5px; /* 調整間距為 -5px */
+                color: #555;
+            }
         }
 
-        .institution-item.active {
-            background-color: #e3f2fd;
+        /* 手機版面保持水平佈局 */
+        @media (max-width: 768px) {
+            .institution-item {
+                flex-direction: row;
+                padding: 8px 12px;
+            }
+
+            .institution-number {
+                margin-right: 8px;
+                margin-bottom: 0;
+            }
         }
 
         .institution-number {
             color: #3498db;
             font-weight: bold;
-            margin-right: 8px;
+            flex-shrink: 0;
+            padding-top: 2px; /* 微調編號位置 */
+        }
+
+        .institution-info {
+            flex: 1;
+            min-width: 0; /* 確保flex子項目可以正確縮小 */
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
 
         .institution-name {
             font-weight: 500;
-            margin-bottom: 4px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* 允許顯示兩行 */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-word; /* 改為 break-word 以避免破壞單字 */
         }
 
         .institution-details {
             font-size: 12px;
             color: #666;
+            padding-bottom: 2px; /* 增加底部間距 */
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         #map {
@@ -220,11 +283,14 @@
             border-radius: 8px;
             box-shadow: 0 3px 14px rgba(0,0,0,0.2);
             max-width: 300px;
+            max-height: 80vh; /* 設定最大高度 */
+            overflow-y: auto; /* 允許垂直捲動 */
         }
         
         .custom-popup .leaflet-popup-content {
             margin: 0;
             padding: 0;
+            overflow-y: auto;
         }
         
         .popup-content {
@@ -299,6 +365,256 @@
             color: #666;
             font-size: 14px;
         }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            body, html {
+                overflow: auto; /* 在手機版允許頁面捲動 */
+                height: auto;
+            }
+            
+            #container {
+                min-height: 100vh;
+                height: auto;
+            }
+            
+            #content-container {
+                flex-direction: column;
+                height: auto;
+                min-height: calc(100vh - 120px); /* 扣除標題和控制區的高度 */
+            }
+            
+            #list-container {
+                width: 100%;
+                border-right: none;
+                border-top: 1px solid #ddd;
+                order: 2;
+                height: 300px; /* 增加容器高度以顯示更多內容 */
+                min-height: 260px;
+                max-height: none;
+                overflow-y: auto;
+            }
+            
+            #map {
+                width: 100%;
+                height: 60vh; /* 固定地圖高度 */
+                min-height: 300px;
+                order: 1;
+                flex-shrink: 0; /* 防止地圖被壓縮 */
+            }
+            
+            #institution-list {
+                flex: 1; /* 讓列表填滿容器 */
+                overflow-y: auto; /* 允許垂直捲動 */
+                -webkit-overflow-scrolling: touch; /* 平滑捲動 */
+            }
+            
+            /* 保留其他手機版面樣式 */
+            #controls {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 10px;
+                flex-shrink: 0; /* 防止控制區被壓縮 */
+            }
+            
+            #search-input {
+                width: 100%;
+                min-width: unset;
+            }
+            
+            #category-select,
+            #agency-select,
+            #management-select,
+            #technical-select {
+                width: 100%;
+                min-width: unset;
+            }
+            
+            #header h1 {
+                font-size: 20px;
+                text-align: center;
+            }
+            
+            .institution-item {
+                padding: 8px 12px;
+                min-height: 48px;
+            }
+            
+            .institution-info {
+                gap: 4px;
+            }
+            
+            .institution-name {
+                font-size: 14px;
+                line-height: 1.3;
+            }
+            
+            .institution-details {
+                font-size: 12px;
+                padding-bottom: 1px;
+            }
+            
+            #list-header {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: #f8f9fa;
+                flex-shrink: 0; /* 防止標題被壓縮 */
+            }
+            
+            #download-button {
+                margin-left: auto;
+                margin-right: 0;
+            }
+
+            .custom-popup .leaflet-popup-content-wrapper {
+                max-width: 90vw;
+                max-height: 70vh;
+                width: 90vw;
+                margin: 0 auto;
+            }
+            
+            .popup-content h3 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            
+            .info-table {
+                font-size: 12px;
+            }
+            
+            .info-table td {
+                padding: 3px 0;
+            }
+            
+            .custom-popup .leaflet-popup-close-button {
+                top: 5px;
+                right: 5px;
+                width: 24px;
+                height: 24px;
+                font-size: 18px;
+                padding: 2px;
+                z-index: 1000;
+                background-color: white;
+                border-radius: 50%;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            }
+            
+            .custom-popup .leaflet-popup-tip-container {
+                display: none;
+            }
+        }
+        
+        .leaflet-popup {
+            max-height: 80vh;
+        }
+        
+        .custom-popup .leaflet-popup-content-wrapper {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+            max-width: 300px;
+            overflow: visible;
+        }
+        
+        .custom-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .popup-content {
+            padding: 15px;
+        }
+        
+        /* 手機版面的彈出視窗樣式 */
+        @media (max-width: 768px) {
+            .custom-popup .leaflet-popup-content-wrapper {
+                max-width: 280px;
+                width: 70vw;
+                position: fixed;
+                left: 50% !important;
+                top: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                max-height: 60vh;
+            }
+            
+            .custom-popup .leaflet-popup-content {
+                max-height: 50vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 10px;
+            }
+            
+            .popup-content h3 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            
+            .info-table {
+                font-size: 12px;
+            }
+            
+            .info-table td {
+                padding: 3px 0;
+            }
+
+            .custom-popup .leaflet-popup-close-button {
+                top: 5px;
+                right: 5px;
+                width: 24px;
+                height: 24px;
+                font-size: 18px;
+                padding: 2px;
+                z-index: 1000;
+                background-color: white;
+                border-radius: 50%;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            }
+            
+            .custom-popup .leaflet-popup-tip-container {
+                display: none;
+            }
+        }
+
+        /* 回到頂端按鈕樣式 */
+        #back-to-top {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 40px;
+            height: 40px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0.9;
+            transition: all 0.3s ease;
+        }
+
+        #back-to-top:hover {
+            background-color: #2980b9;
+            opacity: 1;
+        }
+
+        #back-to-top::before {
+            content: "↑";
+            font-size: 20px;
+            line-height: 40px;
+            display: block;
+            text-align: center;
+        }
+
+        @media (min-width: 769px) {
+            #back-to-top {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -339,6 +655,9 @@
         
         <div id="pagination"></div>
     </div>
+    
+    <!-- 回到頂端按鈕 -->
+    <button id="back-to-top" title="回到頂端"></button>
     
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
