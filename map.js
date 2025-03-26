@@ -141,23 +141,73 @@ document.addEventListener('DOMContentLoaded', function() {
             listItem.classList.add('active');
             activeListItem = listItem;
 
-            const targetMarker = markerReferences[index];
-            if (targetMarker) {
-                // 關閉其他已開啟的彈出視窗
-                markers.eachLayer((layer) => {
-                    if (layer !== targetMarker && layer.isPopupOpen()) {
-                        layer.closePopup();
-                    }
-                });
+            // 設定地圖視圖
+            map.setView(coordinates, 18); // 提高縮放級別以更好地分辨近距離的標記
 
-                // 設定地圖視圖
-                map.setView(coordinates, 15);
+            // 確保關閉所有已開啟的彈出視窗
+            markers.eachLayer((layer) => {
+                if (layer.isPopupOpen()) {
+                    layer.closePopup();
+                }
+            });
 
-                // 確保標記點可見並開啟彈出視窗
-                setTimeout(() => {
-                    targetMarker.openPopup();
-                }, 100);
-            }
+            // 創建標記點彈出資訊（直接在點擊時創建，而不依賴預先綁定的彈出視窗）
+            const popupContent = `
+                <div class="popup-content">
+                    <h3>${item.職訓機構名稱}</h3>
+                    <table class="info-table">
+                        <tr>
+                            <td>類別：</td>
+                            <td>${item.類別 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>系統帳號：</td>
+                            <td>${formatAccountNumber(item.系統帳號)}</td>
+                        </tr>
+                        <tr>
+                            <td>管理等級：</td>
+                            <td>${item.管理 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>技術等級：</td>
+                            <td>${item.技術 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>主管機關：</td>
+                            <td>${item.主管機關 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>負責人：</td>
+                            <td>${item.負責人職稱 || ''} ${item.負責人 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>電話：</td>
+                            <td>${item.電話 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>信箱：</td>
+                            <td>${item.信箱 || '無'}</td>
+                        </tr>
+                        <tr>
+                            <td>地址：</td>
+                            <td>${item.地址 || '無'}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+            
+            // 直接在位置創建臨時彈出視窗，避免標記點重疊問題
+            const popup = L.popup({
+                className: 'custom-popup',
+                maxWidth: 300,
+                autoPan: true,
+                closeButton: true,
+                closeOnClick: false,
+                closeOnEscapeKey: true
+            })
+            .setLatLng(coordinates)
+            .setContent(popupContent)
+            .openOn(map);
 
             listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
@@ -375,20 +425,125 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const downloadButton = document.getElementById('download-button');
+    const sortModal = document.getElementById('sort-modal');
+    const sortCancelButton = document.getElementById('sort-cancel');
+    const sortConfirmButton = document.getElementById('sort-confirm');
+    let originalInstitutionsData = []; // 存儲原始資料順序
     
     // 添加下載按鈕點擊事件
     downloadButton.addEventListener('click', () => {
-        downloadFilteredData();
+        // 顯示排序選項對話框
+        sortModal.style.display = 'block';
+    });
+    
+    // 關閉排序選項對話框
+    sortCancelButton.addEventListener('click', () => {
+        sortModal.style.display = 'none';
+    });
+    
+    // 確認排序選項並下載
+    sortConfirmButton.addEventListener('click', () => {
+        const selectedSortOption = document.querySelector('input[name="sortOption"]:checked').value;
+        downloadFilteredData(selectedSortOption);
+        sortModal.style.display = 'none';
+    });
+    
+    // 點擊對話框外部區域關閉對話框
+    window.addEventListener('click', (event) => {
+        if (event.target === sortModal) {
+            sortModal.style.display = 'none';
+        }
     });
 
     // 下載篩選後的資料
-    function downloadFilteredData() {
+    function downloadFilteredData(sortOption = 'list') {
         // 準備 Excel 工作表資料
         const headers = ['序', '類別', '系統帳號', '單一職訓機構', '職訓機構名稱', '管理', '技術',
                         '主管機關', '負責人職稱', '負責人', '電話', '信箱', '地址', '地址經緯度'];
         
-        // 使用目前過濾後的資料順序，並重新編排序號
-        const formattedData = filteredData.map((item, index) => [
+        console.log('選擇的排序方式:', sortOption);
+        
+        // 根據選擇的排序方式對資料進行處理
+        let dataToExport = [...filteredData]; // 複製當前篩選後的資料
+        
+        // 定義管理等級和技術等級的排序順序
+        const levelOrder = {
+            '優等': 1, 
+            '甲等': 2, 
+            '乙等': 3, 
+            '丙等': 4, 
+            '丁等': 5, 
+            '乙等(僅檔案紀錄)': 6,
+            '無': 7
+        };
+        
+        switch (sortOption) {
+            case 'account':
+                // 按系統帳號排序
+                dataToExport.sort((a, b) => {
+                    const accountA = formatAccountNumber(a.系統帳號);
+                    const accountB = formatAccountNumber(b.系統帳號);
+                    return accountA.localeCompare(accountB);
+                });
+                break;
+                
+            case 'name':
+                // 按單位名稱排序
+                dataToExport.sort((a, b) => {
+                    return a.職訓機構名稱.localeCompare(b.職訓機構名稱, 'zh-TW');
+                });
+                break;
+                
+            case 'management':
+                // 按管理等級排序
+                dataToExport.sort((a, b) => {
+                    const orderA = levelOrder[a.管理] || 999;
+                    const orderB = levelOrder[b.管理] || 999;
+                    if (orderA === orderB) {
+                        // 如果管理等級相同，則按照技術等級排序
+                        const techOrderA = levelOrder[a.技術] || 999;
+                        const techOrderB = levelOrder[b.技術] || 999;
+                        return techOrderA - techOrderB;
+                    }
+                    return orderA - orderB;
+                });
+                break;
+                
+            case 'technical':
+                // 按技術等級排序
+                dataToExport.sort((a, b) => {
+                    const orderA = levelOrder[a.技術] || 999;
+                    const orderB = levelOrder[b.技術] || 999;
+                    if (orderA === orderB) {
+                        // 如果技術等級相同，則按照管理等級排序
+                        const mgmtOrderA = levelOrder[a.管理] || 999;
+                        const mgmtOrderB = levelOrder[b.管理] || 999;
+                        return mgmtOrderA - mgmtOrderB;
+                    }
+                    return orderA - orderB;
+                });
+                break;
+                
+            case 'original':
+                // 按原始檔案順序
+                if (originalInstitutionsData.length > 0) {
+                    // 根據原始數據的索引排序
+                    dataToExport.sort((a, b) => {
+                        const indexA = originalInstitutionsData.findIndex(item => item.系統帳號 === a.系統帳號 && item.職訓機構名稱 === a.職訓機構名稱);
+                        const indexB = originalInstitutionsData.findIndex(item => item.系統帳號 === b.系統帳號 && item.職訓機構名稱 === b.職訓機構名稱);
+                        return indexA - indexB;
+                    });
+                }
+                break;
+                
+            case 'list':
+            default:
+                // 當前顯示順序，不需額外處理
+                break;
+        }
+        
+        // 使用排序後的資料，並重新編排序號
+        const formattedData = dataToExport.map((item, index) => [
             (index + 1).toString(), // 重新編排序號，從1開始
             item.類別,
             { v: formatAccountNumber(item.系統帳號), t: 's' },
@@ -440,10 +595,19 @@ document.addEventListener('DOMContentLoaded', function() {
             day: '2-digit'
         }).replace(/\//g, '');
         
-        // 下載檔案
-        XLSX.writeFile(wb, `職訓機構列表_${date}.xlsx`);
+        const sortNames = {
+            'list': '列表順序',
+            'account': '系統帳號',
+            'name': '單位名稱',
+            'management': '管理等級',
+            'technical': '技術等級',
+            'original': '原始順序'
+        };
+        
+        // 下載檔案，文件名加入排序方式
+        XLSX.writeFile(wb, `職訓機構列表_${sortNames[sortOption]}_${date}.xlsx`);
     }
-
+    
     // 初始化選擇器時的處理函數
     function initializeSelect(selectElement, options, title) {
         selectElement.innerHTML = '';
@@ -470,16 +634,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 添加變更事件監聽器
         selectElement.addEventListener('change', (event) => {
+            // 阻止事件預設行為，以便我們可以完全控制選擇行為
+            event.preventDefault();
+            
+            // 獲取當前選中的選項
             const selectedOptions = Array.from(selectElement.selectedOptions);
             const allOptionSelected = selectedOptions.some(opt => opt.value === '');
             const otherOptionsSelected = selectedOptions.some(opt => opt.value !== '');
-
-            // 如果選擇了非「所有」的選項，取消「所有」選項
-            if (otherOptionsSelected && allOptionSelected) {
+            
+            // 根據您的需求進行處理：
+            
+            // 1. 當選擇任何特定選項時，「所有XX」會自動取消
+            if (otherOptionsSelected) {
                 allOption.selected = false;
             }
             
-            // 如果選擇了「所有」選項，取消其他所有選項
+            // 2. 當選擇「所有XX」選項時，其他已選擇的選項會自動取消
             if (allOptionSelected) {
                 Array.from(selectElement.options).forEach(opt => {
                     if (opt.value !== '') {
@@ -487,13 +657,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             }
-
-            // 如果沒有選擇任何選項，自動選擇「所有」選項
+            
+            // 3. 如果沒有選擇任何選項，系統會自動回到「所有XX」的狀態
             if (Array.from(selectElement.selectedOptions).length === 0) {
                 allOption.selected = true;
             }
-
+            
+            // 更新選擇器標題
             updateSelectTitle(selectElement, title);
+            
+            // 更新篩選器並重新顯示資料
             updateFilters();
         });
     }
@@ -516,6 +689,26 @@ document.addEventListener('DOMContentLoaded', function() {
     function processExcelData(jsonData) {
         console.log('開始處理Excel資料...');
         try {
+            // 保存原始資料順序
+            originalInstitutionsData = jsonData.map((row, index) => {
+                return {
+                    序: row.序,
+                    類別: row.類別,
+                    系統帳號: row.系統帳號,
+                    單一職訓機構: row.單一職訓機構,
+                    職訓機構名稱: row.職訓機構名稱,
+                    管理: row.管理,
+                    技術: row.技術,
+                    主管機關: row.主管機關,
+                    負責人職稱: row.負責人職稱,
+                    負責人: row.負責人,
+                    電話: row.電話,
+                    信箱: row.信箱,
+                    地址: row.地址,
+                    地址經緯度: row.地址經緯度
+                };
+            });
+
             // 定義主管機關順序
             const orderedAgencies = [
                 '基隆市政府', '臺北市政府', '新北市政府', '桃園市政府', 

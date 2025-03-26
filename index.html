@@ -468,96 +468,61 @@
             }
 
             .custom-popup .leaflet-popup-content-wrapper {
-                max-width: 90vw;
-                max-height: 70vh;
-                width: 90vw;
-                margin: 0 auto;
-            }
-            
-            .popup-content h3 {
-                font-size: 14px;
-                margin-bottom: 8px;
-            }
-            
-            .info-table {
-                font-size: 12px;
-            }
-            
-            .info-table td {
-                padding: 3px 0;
-            }
-            
-            .custom-popup .leaflet-popup-close-button {
-                top: 5px;
-                right: 5px;
-                width: 24px;
-                height: 24px;
-                font-size: 18px;
-                padding: 2px;
-                z-index: 1000;
-                background-color: white;
-                border-radius: 50%;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            }
-            
-            .custom-popup .leaflet-popup-tip-container {
-                display: none;
-            }
-        }
-        
-        .leaflet-popup {
-            max-height: 80vh;
-        }
-        
-        .custom-popup .leaflet-popup-content-wrapper {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
-            max-width: 300px;
-            overflow: visible;
-        }
-        
-        .custom-popup .leaflet-popup-content {
-            margin: 0;
-            padding: 0;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        
-        .popup-content {
-            padding: 15px;
-        }
-        
-        /* 手機版面的彈出視窗樣式 */
-        @media (max-width: 768px) {
-            .custom-popup .leaflet-popup-content-wrapper {
                 max-width: 280px;
-                width: 70vw;
+                width: 90vw;
                 position: fixed;
                 left: 50% !important;
-                top: 50% !important;
+                top: 50% !重要;
                 transform: translate(-50%, -50%) !important;
-                max-height: 60vh;
+                max-height: 80vh;
+                overflow-y: visible; /* 移除下方捲動 */
             }
             
             .custom-popup .leaflet-popup-content {
-                max-height: 50vh;
-                overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
+                max-height: none; /* 移除高度限制，不使用捲動 */
+                overflow-y: visible; /* 移除捲動效果 */
+                -webkit-overflow-scrolling: auto;
+            }
+            
+            .popup-content {
                 padding: 10px;
             }
             
             .popup-content h3 {
-                font-size: 14px;
+                font-size: 14px;  /* 將標題字體從15px減小到14px */
                 margin-bottom: 8px;
+                white-space: normal;
+                word-wrap: break-word;
+                line-height: 1.4;
+                overflow: visible;
             }
             
             .info-table {
-                font-size: 12px;
+                font-size: 12px;  /* 將表格字體從13px減小到12px */
+                margin: 0;
+                width: 100%;
+                table-layout: fixed;
             }
             
             .info-table td {
-                padding: 3px 0;
+                padding: 3px 0;  /* 輕微減少垂直間距 */
+                vertical-align: top;
+                line-height: 1.3;  /* 調整行高 */
+            }
+            
+            .info-table td:first-child {
+                width: 70px; /* 減少標題寬度 */
+                min-width: 70px;
+                white-space: nowrap; /* 標題不換行 */
+                padding-right: 2px; /* 減少右邊距，讓冒號靠近內容 */
+                padding-left: 8px;
+            }
+            
+            .info-table td:last-child {
+                padding-left: 2px; /* 減少左邊距，讓內容靠近冒號 */
+                padding-right: 8px;
+                word-wrap: break-word; /* 內容自動換行 */
+                word-break: break-all;
             }
 
             .custom-popup .leaflet-popup-close-button {
@@ -658,6 +623,43 @@
     
     <!-- 回到頂端按鈕 -->
     <button id="back-to-top" title="回到頂端"></button>
+    
+    <!-- 排序選項對話框 -->
+    <div id="sort-modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+        <div style="background-color: white; margin: 15% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 350px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; color: #3498db;">請選擇排序方式</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="list" checked>
+                    <span>列表排序 (當前顯示順序)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="account">
+                    <span>系統帳號排序</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="name">
+                    <span>單位名稱排序</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="management">
+                    <span>管理等級排序</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="technical">
+                    <span>技術等級排序</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="sortOption" value="original">
+                    <span>原始檔案排序</span>
+                </label>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="sort-cancel" style="padding: 6px 12px; background-color: #f1f1f1; border: none; border-radius: 4px; cursor: pointer;">取消</button>
+                <button id="sort-confirm" style="padding: 6px 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">確認</button>
+            </div>
+        </div>
+    </div>
     
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
