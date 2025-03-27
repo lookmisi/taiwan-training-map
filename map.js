@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const xlsxPath = '教育訓練單位總表.xlsx';
     console.log('Excel檔案路徑:', xlsxPath);
     
+    // 檢測是否為 iOS 裝置
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS) {
+        document.body.classList.add('ios-device');
+        console.log('檢測到 iOS 設備，啟用替代選擇器');
+    }
+    
     // 初始化地圖，設置中心點在台灣中心位置
     const map = L.map('map').setView([23.5, 121], 8);
 
@@ -100,6 +107,23 @@ document.addEventListener('DOMContentLoaded', function() {
     searchInput.addEventListener('input', () => {
         updateFilters();
     });
+
+    // 獲取 iOS 自定義選擇器元素
+    const customSelectModal = document.getElementById('custom-select-modal');
+    const customSelectOptions = document.getElementById('custom-select-options');
+    const customSelectHeader = document.querySelector('.custom-select-header');
+    const customSelectCancel = document.getElementById('custom-select-cancel');
+    const customSelectConfirm = document.getElementById('custom-select-confirm');
+    
+    // 獲取自定義選擇器按鈕
+    const categoryButton = document.getElementById('category-button');
+    const agencyButton = document.getElementById('agency-button');
+    const managementButton = document.getElementById('management-button');
+    const technicalButton = document.getElementById('technical-button');
+    
+    // 全局變量用於跟踪當前操作的選擇器
+    let currentSelectElement = null;
+    let tempSelectedOptions = [];
 
     let currentFilter = '';
     let currentCategories = [];
@@ -453,6 +477,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.target === sortModal) {
             sortModal.style.display = 'none';
         }
+        
+        if (event.target === customSelectModal) {
+            closeCustomSelect();
+        }
     });
 
     // 下載篩選後的資料
@@ -608,6 +636,166 @@ document.addEventListener('DOMContentLoaded', function() {
         XLSX.writeFile(wb, `職訓機構列表_${sortNames[sortOption]}_${date}.xlsx`);
     }
     
+    // iOS 自定義選擇器函數
+    function openCustomSelect(selectElement, title) {
+        currentSelectElement = selectElement;
+        customSelectHeader.textContent = `選擇${title}`;
+        customSelectOptions.innerHTML = '';
+        
+        // 獲取所有選項
+        const options = Array.from(selectElement.options);
+        
+        // 保存臨時選擇狀態
+        tempSelectedOptions = [];
+        options.forEach(option => {
+            if (option.selected) {
+                tempSelectedOptions.push(option.value);
+            }
+        });
+        
+        // 創建選項
+        options.forEach(option => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'custom-select-option';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = option.value;
+            checkbox.checked = option.selected;
+            checkbox.id = `custom-option-${option.value.replace(/\s+/g, '-')}`;
+            
+            // 特殊處理"所有XX"選項的點擊事件
+            checkbox.addEventListener('change', (e) => {
+                if (option.value === '' && e.target.checked) {
+                    // 如果選擇了"所有XX"，取消其他選項
+                    document.querySelectorAll('.custom-select-option input[type="checkbox"]').forEach(cb => {
+                        if (cb.value !== '') {
+                            cb.checked = false;
+                        }
+                    });
+                } else if (option.value !== '' && e.target.checked) {
+                    // 如果選擇了其他選項，取消"所有XX"選項
+                    document.querySelectorAll('.custom-select-option input[type="checkbox"]').forEach(cb => {
+                        if (cb.value === '') {
+                            cb.checked = false;
+                        }
+                    });
+                }
+                
+                // 如果沒有任何選擇，自動選擇"所有XX"
+                let hasChecked = false;
+                document.querySelectorAll('.custom-select-option input[type="checkbox"]').forEach(cb => {
+                    if (cb.checked) {
+                        hasChecked = true;
+                    }
+                });
+                
+                if (!hasChecked) {
+                    document.querySelectorAll('.custom-select-option input[type="checkbox"]').forEach(cb => {
+                        if (cb.value === '') {
+                            cb.checked = true;
+                        }
+                    });
+                }
+            });
+            
+            const label = document.createElement('label');
+            label.textContent = option.textContent;
+            label.htmlFor = checkbox.id;
+            
+            optionDiv.appendChild(checkbox);
+            optionDiv.appendChild(label);
+            customSelectOptions.appendChild(optionDiv);
+        });
+        
+        customSelectModal.style.display = 'block';
+    }
+
+    // 關閉自定義選擇器
+    function closeCustomSelect() {
+        customSelectModal.style.display = 'none';
+        currentSelectElement = null;
+    }
+
+    // 取消按鈕點擊事件
+    customSelectCancel.addEventListener('click', () => {
+        closeCustomSelect();
+    });
+
+    // 確認按鈕點擊事件
+    customSelectConfirm.addEventListener('click', () => {
+        if (currentSelectElement) {
+            // 更新原始選擇器
+            const options = Array.from(currentSelectElement.options);
+            const selectedValues = [];
+            
+            // 獲取所有已選中的選項值
+            document.querySelectorAll('.custom-select-option input[type="checkbox"]:checked').forEach(cb => {
+                selectedValues.push(cb.value);
+            });
+            
+            // 更新選擇器選項的選中狀態
+            options.forEach(option => {
+                option.selected = selectedValues.includes(option.value);
+            });
+            
+            // 更新按鈕文本
+            const selectId = currentSelectElement.id;
+            let buttonId = null;
+            let title = '';
+            
+            switch (selectId) {
+                case 'category-select':
+                    buttonId = 'category-button';
+                    title = '類別';
+                    break;
+                case 'agency-select':
+                    buttonId = 'agency-button';
+                    title = '主管機關';
+                    break;
+                case 'management-select':
+                    buttonId = 'management-button';
+                    title = '管理等級';
+                    break;
+                case 'technical-select':
+                    buttonId = 'technical-button';
+                    title = '技術等級';
+                    break;
+            }
+            
+            if (buttonId) {
+                const button = document.getElementById(buttonId);
+                updateButtonText(button, currentSelectElement, title);
+            }
+            
+            // 觸發選擇器的 change 事件
+            const event = new Event('change');
+            currentSelectElement.dispatchEvent(event);
+            
+            closeCustomSelect();
+        }
+    });
+    
+    // 為所有自定義選擇器按鈕添加點擊事件
+    categoryButton.addEventListener('click', () => openCustomSelect(categorySelect, '類別'));
+    agencyButton.addEventListener('click', () => openCustomSelect(agencySelect, '主管機關'));
+    managementButton.addEventListener('click', () => openCustomSelect(managementSelect, '管理等級'));
+    technicalButton.addEventListener('click', () => openCustomSelect(technicalSelect, '技術等級'));
+    
+    // 更新選擇器按鈕文本
+    function updateButtonText(button, selectElement, title) {
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        const selectedCount = selectedOptions.filter(option => option.value !== '').length;
+        
+        if (selectedOptions.some(opt => opt.value === '')) {
+            button.textContent = `所有${title}`;
+        } else if (selectedCount > 0) {
+            button.textContent = `已選擇 ${selectedCount} 個${title}`;
+        } else {
+            button.textContent = `選擇${title}`;
+        }
+    }
+
     // 初始化選擇器時的處理函數
     function initializeSelect(selectElement, options, title) {
         selectElement.innerHTML = '';
@@ -632,6 +820,28 @@ document.addEventListener('DOMContentLoaded', function() {
         // 更新選擇器標題
         updateSelectTitle(selectElement, title);
         
+        // 找到對應的按鈕
+        let buttonElement = null;
+        switch (selectElement.id) {
+            case 'category-select':
+                buttonElement = categoryButton;
+                break;
+            case 'agency-select':
+                buttonElement = agencyButton;
+                break;
+            case 'management-select':
+                buttonElement = managementButton;
+                break;
+            case 'technical-select':
+                buttonElement = technicalButton;
+                break;
+        }
+        
+        // 初始化按鈕文本
+        if (buttonElement) {
+            updateButtonText(buttonElement, selectElement, title);
+        }
+        
         // 添加變更事件監聽器
         selectElement.addEventListener('change', (event) => {
             // 阻止事件預設行為，以便我們可以完全控制選擇行為
@@ -642,10 +852,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const allOptionSelected = selectedOptions.some(opt => opt.value === '');
             const otherOptionsSelected = selectedOptions.some(opt => opt.value !== '');
             
-            // 根據您的需求進行處理：
+            // 處理邏輯:
             
             // 1. 當選擇任何特定選項時，「所有XX」會自動取消
-            if (otherOptionsSelected) {
+            if (otherOptionsSelected && allOptionSelected) {
                 allOption.selected = false;
             }
             
@@ -663,8 +873,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 allOption.selected = true;
             }
             
-            // 更新選擇器標題
+            // 更新選擇器標題和按鈕文本
             updateSelectTitle(selectElement, title);
+            if (buttonElement) {
+                updateButtonText(buttonElement, selectElement, title);
+            }
             
             // 更新篩選器並重新顯示資料
             updateFilters();
