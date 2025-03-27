@@ -103,6 +103,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const institutionListElement = document.getElementById('institution-list');
     let activeListItem = null;
     
+    // 檢查是否是移動設備
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.log('是否為移動設備:', isMobile);
+    
     // 添加搜尋輸入框的事件監聽器
     searchInput.addEventListener('input', () => {
         updateFilters();
@@ -842,7 +846,67 @@ document.addEventListener('DOMContentLoaded', function() {
             updateButtonText(buttonElement, selectElement, title);
         }
         
-        // 添加變更事件監聽器
+        // 處理移動設備的選擇器邏輯
+        if (isMobile && !isIOS) {
+            // Android設備的特殊處理
+            // 監聽點擊事件以捕獲選擇變化
+            selectElement.addEventListener('mousedown', function(e) {
+                // 保存當前選擇狀態
+                const currentSelected = Array.from(this.selectedOptions).map(opt => opt.value);
+                const clickedValue = e.target.value;
+                
+                // 點擊延遲處理以允許瀏覽器完成其默認行為
+                setTimeout(() => {
+                    const allOptionSelected = Array.from(this.selectedOptions).some(opt => opt.value === '');
+                    const otherOptionsSelected = Array.from(this.selectedOptions).some(opt => opt.value !== '');
+                    
+                    // 1. 當選擇任何特定選項時，「所有XX」會自動取消
+                    if (otherOptionsSelected && allOptionSelected) {
+                        allOption.selected = false;
+                    }
+                    
+                    // 2. 當選擇「所有XX」選項時，其他已選擇的選項會自動取消
+                    if (allOptionSelected && clickedValue === '') {
+                        Array.from(this.options).forEach(opt => {
+                            if (opt.value !== '') {
+                                opt.selected = false;
+                            }
+                        });
+                    }
+                    
+                    // 3. 如果沒有選擇任何選項，系統會自動回到「所有XX」的狀態
+                    if (Array.from(this.selectedOptions).length === 0) {
+                        allOption.selected = true;
+                    }
+                    
+                    // 更新選擇器和過濾器
+                    updateSelectTitle(selectElement, title);
+                    if (buttonElement) {
+                        updateButtonText(buttonElement, selectElement, title);
+                    }
+                    updateFilters();
+                }, 50);
+            });
+            
+            // 添加touchend事件處理，以確保在觸摸設備上也能正確處理
+            selectElement.addEventListener('touchend', function(e) {
+                setTimeout(() => {
+                    const allOptionSelected = Array.from(this.selectedOptions).some(opt => opt.value === '');
+                    const otherOptionsSelected = Array.from(this.selectedOptions).some(opt => opt.value !== '');
+                    
+                    if (otherOptionsSelected && allOptionSelected) {
+                        allOption.selected = false;
+                        updateSelectTitle(selectElement, title);
+                        if (buttonElement) {
+                            updateButtonText(buttonElement, selectElement, title);
+                        }
+                        updateFilters();
+                    }
+                }, 100);
+            });
+        }
+        
+        // 添加變更事件監聽器（一般處理）
         selectElement.addEventListener('change', (event) => {
             // 阻止事件預設行為，以便我們可以完全控制選擇行為
             event.preventDefault();
@@ -882,6 +946,38 @@ document.addEventListener('DOMContentLoaded', function() {
             // 更新篩選器並重新顯示資料
             updateFilters();
         });
+        
+        // 特別處理 Android 多選問題
+        if (isMobile && !isIOS) {
+            // 在選擇變化後重新檢查並強制更新
+            const forceUpdateSelection = () => {
+                const selectedOptions = Array.from(selectElement.selectedOptions);
+                const allOptionSelected = selectedOptions.some(opt => opt.value === '');
+                const otherOptionsSelected = selectedOptions.some(opt => opt.value !== '');
+                
+                if (otherOptionsSelected && allOptionSelected) {
+                    allOption.selected = false;
+                    
+                    // 顯示調試資訊
+                    console.log(`強制更新${title}選擇器: 取消"所有"選項`);
+                    
+                    // 更新選擇器和過濾器
+                    updateSelectTitle(selectElement, title);
+                    if (buttonElement) {
+                        updateButtonText(buttonElement, selectElement, title);
+                    }
+                    updateFilters();
+                }
+            };
+            
+            // 在用戶點擊後的短暫延遲執行強制更新
+            selectElement.addEventListener('click', () => {
+                setTimeout(forceUpdateSelection, 50);
+            });
+            
+            // 捕獲焦點變化
+            selectElement.addEventListener('blur', forceUpdateSelection);
+        }
     }
 
     // 更新選擇器標題
