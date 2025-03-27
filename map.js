@@ -851,22 +851,18 @@ document.addEventListener('DOMContentLoaded', function() {
             // Android設備的特殊處理
             // 監聽點擊事件以捕獲選擇變化
             selectElement.addEventListener('mousedown', function(e) {
-                // 保存當前選擇狀態
-                const currentSelected = Array.from(this.selectedOptions).map(opt => opt.value);
-                const clickedValue = e.target.value;
+                // 保存點擊前的選擇狀態及點擊的值
+                const currentSelectedBefore = Array.from(this.selectedOptions).map(opt => opt.value);
+                const clickedOption = e.target;
+                const clickedValue = clickedOption ? clickedOption.value : null;
                 
                 // 點擊延遲處理以允許瀏覽器完成其默認行為
                 setTimeout(() => {
                     const allOptionSelected = Array.from(this.selectedOptions).some(opt => opt.value === '');
                     const otherOptionsSelected = Array.from(this.selectedOptions).some(opt => opt.value !== '');
                     
-                    // 1. 當選擇任何特定選項時，「所有XX」會自動取消
-                    if (otherOptionsSelected && allOptionSelected) {
-                        allOption.selected = false;
-                    }
-                    
-                    // 2. 當選擇「所有XX」選項時，其他已選擇的選項會自動取消
-                    if (allOptionSelected && clickedValue === '') {
+                    // 若點擊的是"所有XX"選項，取消其他選項
+                    if (clickedValue === '' && allOptionSelected) {
                         Array.from(this.options).forEach(opt => {
                             if (opt.value !== '') {
                                 opt.selected = false;
@@ -874,7 +870,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                     
-                    // 3. 如果沒有選擇任何選項，系統會自動回到「所有XX」的狀態
+                    // 若點擊的是其他選項，取消"所有XX"選項
+                    if (clickedValue !== '' && clickedValue != null && otherOptionsSelected && allOptionSelected) {
+                        allOption.selected = false;
+                    }
+                    
+                    // 確保至少有一個選項被選中
                     if (Array.from(this.selectedOptions).length === 0) {
                         allOption.selected = true;
                     }
@@ -894,15 +895,37 @@ document.addEventListener('DOMContentLoaded', function() {
                     const allOptionSelected = Array.from(this.selectedOptions).some(opt => opt.value === '');
                     const otherOptionsSelected = Array.from(this.selectedOptions).some(opt => opt.value !== '');
                     
-                    if (otherOptionsSelected && allOptionSelected) {
-                        allOption.selected = false;
-                        updateSelectTitle(selectElement, title);
-                        if (buttonElement) {
-                            updateButtonText(buttonElement, selectElement, title);
-                        }
-                        updateFilters();
+                    // 特別檢查：如果同時選中了"所有"和其他選項，根據點擊行為決定取消哪一個
+                    if (allOptionSelected && otherOptionsSelected) {
+                        // 默認行為：保留"所有"選項，取消其他選項
+                        Array.from(this.options).forEach(opt => {
+                            if (opt.value !== '') {
+                                opt.selected = false;
+                            }
+                        });
                     }
+                    
+                    updateSelectTitle(selectElement, title);
+                    if (buttonElement) {
+                        updateButtonText(buttonElement, selectElement, title);
+                    }
+                    updateFilters();
                 }, 100);
+            });
+            
+            // 新增：選擇器變化事件，確保選擇【所有...】時其他項目自動取消
+            selectElement.addEventListener('change', function(e) {
+                const selectedValues = Array.from(this.selectedOptions).map(opt => opt.value);
+                
+                // 檢查是否選擇了"所有"選項
+                if (selectedValues.includes('')) {
+                    // 如果選擇了"所有"選項，取消其他所有選項
+                    Array.from(this.options).forEach(opt => {
+                        if (opt.value !== '') {
+                            opt.selected = false;
+                        }
+                    });
+                }
             });
         }
         
@@ -955,11 +978,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const allOptionSelected = selectedOptions.some(opt => opt.value === '');
                 const otherOptionsSelected = selectedOptions.some(opt => opt.value !== '');
                 
-                if (otherOptionsSelected && allOptionSelected) {
-                    allOption.selected = false;
+                // 如果同時選中了"所有"和其他選項
+                if (allOptionSelected && otherOptionsSelected) {
+                    // 強制保留"所有"選項，取消其他選項
+                    Array.from(selectElement.options).forEach(opt => {
+                        if (opt.value !== '') {
+                            opt.selected = false;
+                        }
+                    });
                     
                     // 顯示調試資訊
-                    console.log(`強制更新${title}選擇器: 取消"所有"選項`);
+                    console.log(`強制更新${title}選擇器: 保留"所有"選項，取消其他選項`);
                     
                     // 更新選擇器和過濾器
                     updateSelectTitle(selectElement, title);
